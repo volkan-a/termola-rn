@@ -2,22 +2,20 @@ import { observer } from "mobx-react-lite";
 import { View, Text, Icon, Button } from "native-base";
 import React from "react";
 import AlertAsync from "react-native-alert-async";
-import { Stack } from "react-native-spacing-system";
 
 import { ProcessStream } from "../backend/processStream";
 import { ScrollView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { Animated } from "react-native";
+import { StreamStoreContext } from "../stores/StreamStore";
 
 interface StreamListInterface {
-  streams: ProcessStream[];
-  removeStream(arg: ProcessStream): void;
   addStream(): void;
 }
 
-export const StreamList = observer(
-  ({ streams, removeStream, addStream }: StreamListInterface) => {
-    const [selectedStream, setSelectedStream] = React.useState<ProcessStream>();
+export const StreamList: React.FC<StreamListInterface> = observer(
+  ({ addStream }) => {
+    const streamStore = React.useContext(StreamStoreContext);
     const removeStreams = async () => {
       const response = await AlertAsync(
         "Tüm akımlar silinecek",
@@ -34,7 +32,8 @@ export const StreamList = observer(
         ],
         { cancelable: true, onDismiss: () => "no" }
       );
-      if (response === "yes") streams.map((stream) => removeStream(stream));
+      if (response === "yes")
+        streamStore.streams.map((stream) => streamStore.removeStream(stream));
     };
 
     const renderRightActions = (
@@ -58,7 +57,11 @@ export const StreamList = observer(
             <Button danger full>
               <Text
                 style={{ color: "#f8f8f8", fontSize: 18, fontWeight: "300" }}
-                onPress={() => removeStream(selectedStream)}
+                onPress={() =>
+                  streamStore.removeStream(
+                    streamStore.selectedStream as ProcessStream
+                  )
+                }
               >
                 Sil
               </Text>
@@ -70,23 +73,29 @@ export const StreamList = observer(
 
     return (
       <View
-        padder
         style={{
           flex: 1,
           flexDirection: "column",
-          padding: 0,
           justifyContent: "flex-start",
           alignItems: "stretch",
+          borderBottomColor: "d62632",
+          borderWidth: 1,
         }}
       >
         <View
           style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottomColor: "#1a1c20",
+            backgroundColor: "#f4f4f4",
             borderBottomWidth: 1,
-            paddingBottom: 10,
+            borderBottomColor: "pink",
+            shadowColor: "#1a1c20",
+            shadowOffset: {
+              width: 0,
+              height: 1,
+            },
+            shadowOpacity: 0.2,
+            shadowRadius: 1.41,
+
+            elevation: 2,
           }}
         >
           <Text
@@ -94,96 +103,114 @@ export const StreamList = observer(
               fontSize: 20,
               fontWeight: "300",
               textAlign: "left",
+              textAlignVertical: "center",
+              paddingStart: 5,
             }}
           >
             Akımlar
           </Text>
-          <Button
-            small
-            style={{ backgroundColor: "#d62632" }}
-            onPress={addStream}
-          >
-            <Icon fontSize={20} type="Feather" name="plus" />
-          </Button>
-        </View>
-        <ScrollView>
-          {streams.map((stream, index) => (
-            <Swipeable
-              key={index}
-              rightThreshold={40}
-              friction={2}
-              onSwipeableRightOpen={() => setSelectedStream(stream)}
-              renderRightActions={renderRightActions}
-              children={
-                <Button
-                  full
-                  style={{
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                  onPress={() => alert(stream.result?.temperature.toFixed(1))}
-                >
-                  <View
-                    style={{
-                      flex: 1,
-                      height: 45,
-                      paddingHorizontal: 5,
-                      backgroundColor: "#f4f4f4",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      borderBottomWidth: 0.25,
-                      borderBottomColor: "#1a1c20",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#1a1c20",
-                        fontSize: 18,
-                        fontWeight: "200",
-                      }}
-                    >
-                      {stream.name}
-                    </Text>
-                    <Icon
-                      type="Feather"
-                      name={
-                        stream.isCalculated ? "check-circle" : "alert-circle"
-                      }
-                      style={{
-                        fontSize: 18,
-                        color: stream.isCalculated ? "green" : "red",
-                        alignContent: "flex-start",
-                      }}
-                    />
-                  </View>
-                </Button>
-              }
-            />
-          ))}
-        </ScrollView>
-        <Stack size={16} />
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderTopWidth: 1,
-          }}
-        >
-          <Text
+          <View
             style={{
-              fontSize: 16,
-              fontWeight: "100",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            Toplam {streams.length}
-          </Text>
+            <Button success transparent onPress={addStream}>
+              <Text>Yeni ekle</Text>
+            </Button>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "100",
+              }}
+            >
+              Toplam {streamStore.streams.length}
+            </Text>
 
-          <Button danger transparent onPress={removeStreams}>
-            <Text>Hepsini sil</Text>
-          </Button>
+            <Button danger transparent onPress={removeStreams}>
+              <Text style={{ textAlign: "right" }}>Hepsini sil</Text>
+            </Button>
+          </View>
         </View>
+
+        {streamStore.streams.length === 0 && (
+          <Button
+            large
+            light
+            transparent
+            style={{
+              alignSelf: "center",
+              flex: 1,
+            }}
+            onPress={addStream}
+          >
+            <Text>Bir akım ekleyin</Text>
+            <Icon type="Feather" name="plus" />
+          </Button>
+        )}
+        {streamStore.streams.length > 0 && (
+          <ScrollView>
+            {streamStore.streams.map((stream, index) => (
+              <Swipeable
+                key={index}
+                rightThreshold={40}
+                friction={2}
+                onSwipeableRightOpen={() => {
+                  streamStore.setSelectedStream(stream);
+                }}
+                renderRightActions={renderRightActions}
+                children={
+                  <Button
+                    full
+                    style={{
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                    onPress={() => {
+                      streamStore.setSelectedStream(stream);
+                    }}
+                  >
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 45,
+                        paddingHorizontal: 5,
+                        backgroundColor: "#f4f4f4",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        borderBottomWidth: 0.25,
+                        borderBottomColor: "#1a1c20",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#1a1c20",
+                          fontSize: 18,
+                          fontWeight: "200",
+                        }}
+                      >
+                        {stream.name}
+                      </Text>
+                      <Icon
+                        type="Feather"
+                        name={
+                          stream.isCalculated ? "check-circle" : "alert-circle"
+                        }
+                        style={{
+                          fontSize: 18,
+                          color: stream.isCalculated ? "green" : "red",
+                          alignContent: "flex-start",
+                        }}
+                      />
+                    </View>
+                  </Button>
+                }
+              />
+            ))}
+          </ScrollView>
+        )}
       </View>
     );
   }
